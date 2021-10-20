@@ -1,0 +1,282 @@
+---
+title: ""
+output: pdf_document
+---
+\begin{center}
+\huge{\underline{Supplementary Note 2}}
+\end{center}
+
+\begin{center}
+\textbf{Comparison of genotypes for selected SNPs between phase 3 and high coverage whole genome sequence data from the 1000 Genomes Project.}
+\end{center}
+
+In total, 10, 50, 20, and 50 SNPs, respectively from NPR, PAR1, PAR2, and PAR3, with the smallest sdMAF p-values in the phase 3 data were first selected.
+
+Among these SNPs, 10, 4, 9, and 9 SNPs, respectively from NPR, PAR1, PAR2, and PAR3, were also bi-allelic in the high coverage data and had no missingness in both sets of data. 
+
+Each page represents the results for one SNP, and SNPs are ordered by the GRCh37 positions.
+
+Within each page, the position of the SNP in phase 3 (build GRCh37) and high coverage (GRCh38) are first provided. Next is the female - male sdMAF difference and the sdMAF p-value. The REF and ALT alleles are also provided for each build. Finally, the counts of the agreement of the genotype calls between the phase 3 and the high coverage data are provided, separately by sex.
+
+
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(genio)
+library(data.table)
+library(knitr)
+library(gdata)
+```
+
+```{r, echo=FALSE}
+isnpr37 = function(pos)
+  # not consider PAR3
+{
+  if(!pos>=154931044 & !pos<=2699520) return(TRUE)
+  else return(FALSE)
+}
+chrX.SNP.FreqTable = read.csv('chrX.SNP.FreqTable.csv')           # phase 3
+chrXhc.SNP.FreqTable = read.csv('chrXhc.GATK.SNP.FreqTable.csv')  # high coverage
+chrX.AFtest = read.csv('chrX.AFtest.csv')                         # phase 3
+chrXhc.AFtest = read.csv('chrXhc.GATK.AFtest.csv')                # high coverage
+
+```
+
+```{r, echo=FALSE}
+
+pos1 = chrX.SNP.FreqTable$POS[which(chrX.SNP.FreqTable$POS<=2699520)][order(abs(
+  chrX.SNP.FreqTable$F.M_RAF[which(chrX.SNP.FreqTable$POS<=2699520)]), decreasing=TRUE)][1:10]
+pos2 = chrX.SNP.FreqTable$POS[which(chrX.SNP.FreqTable$POS>=154931044)][order(abs(
+  chrX.SNP.FreqTable$F.M_RAF[which(chrX.SNP.FreqTable$POS>=154931044)]), decreasing=TRUE)][1:20]
+pos3 = chrX.SNP.FreqTable$POS[which(chrX.SNP.FreqTable$POS>=88400000 & chrX.SNP.FreqTable$POS<=92000000)][order(abs(
+  chrX.SNP.FreqTable$F.M_RAF[which(chrX.SNP.FreqTable$POS>=88400000 & chrX.SNP.FreqTable$POS<=92000000)]), decreasing=TRUE)][1:50]
+pos4 = chrX.SNP.FreqTable$POS[which(!(chrX.SNP.FreqTable$POS>=88400000 & chrX.SNP.FreqTable$POS<=92000000) & !chrX.SNP.FreqTable$POS>=154931044 & !chrX.SNP.FreqTable$POS<=2699520)][order(abs(
+  chrX.SNP.FreqTable$F.M_RAF[which(!(chrX.SNP.FreqTable$POS>=88400000 & chrX.SNP.FreqTable$POS<=92000000) & !chrX.SNP.FreqTable$POS>=154931044 & !chrX.SNP.FreqTable$POS<=2699520)]), decreasing=TRUE)][1:50]
+chrX.extmSNP = cbind.data.frame(CHR=NA,POS=c(pos1,pos2,pos3,pos4))
+chrX.extmSNP$CHR = 'X'  
+pos = as.matrix(chrX.extmSNP$POS,ncol=1)
+pos2 = apply(pos, MARGIN=1, FUN=function(x) paste('chrX:',x,'-',x,sep=''))
+
+```
+
+```{r, echo=FALSE, eval=FALSE}
+
+# Write text file accessible by liftover
+filepath = file('ExtmGRCh37_pos_40.txt')
+writeLines(pos2,filepath)
+close(filepath)
+
+```
+
+```{r, echo=FALSE}
+
+# Read Liftover results and manually check if exists
+Extmpos38 = read.table('ExtmGRCh38_pos_40.txt')
+hc_pos = as.matrix(chrXhc.SNP.FreqTable$POS,ncol=1)
+hc_exist = apply(hc_pos, MARGIN = 1, FUN=function(x) x%in%Extmpos38$V1)
+
+
+# 
+chrX.phase3.Extm.snp = read.table(file='phase3_GT_ExtmGRCh37_40.txt',sep=' ',header=T)
+chrX.hc.Extm.snp = read.table('hc_v2_GT_ExtmGRCh38_40.txt',sep=' ',header=T)
+sex.info = read.table('sex_info3.txt',header=T)
+GRCh37.snp = apply(pos, MARGIN = 1, FUN=function(x) which(chrX.SNP.FreqTable$POS==x))
+GRCh37.snp = chrX.SNP.FreqTable[GRCh37.snp,]
+
+```
+
+
+```{r, echo=FALSE, results='asis'}
+# Match Extreme SNPs GRCh37 to GRCh38
+posmatch.extm = cbind.data.frame(grch37 = pos[,1], grch38 = Extmpos38$V1)
+
+# Extract other infos from seperate file
+filepath = 'chrX_hc_v2_extmSNP.recode.vcf'
+chrX_hc_extmSNP.REF_ALT = cbind.data.frame(CHROM=NA,POS=NA,ID=NA,REF=NA,ALT=NA)
+con = file(filepath, "r")
+count = 0
+while ( TRUE ) {
+  count = count + 1
+  line = readLines(con, n = 1)
+  if ( length(line) == 0 ) {
+    break
+  }
+  if( startsWith(line,'#') ) next
+  else
+  {
+    splits = strsplit(line, "\\s+")[[1]]
+    chrX_hc_extmSNP.REF_ALT = rbind(chrX_hc_extmSNP.REF_ALT, splits[1:5])
+  }
+}
+chrX_hc_extmSNP.REF_ALT = chrX_hc_extmSNP.REF_ALT[-1,]
+close(con)
+filepath = 'chrX_phase3_extmSNP.recode.vcf'
+chrX_phase3_extmSNP.REF_ALT = cbind.data.frame(CHROM=NA,POS=NA,ID=NA,REF=NA,ALT=NA)
+con = file(filepath, "r")
+count = 0
+while ( TRUE ) {
+  count = count + 1
+  line = readLines(con, n = 1)
+  if ( length(line) == 0 ) {
+    break
+  }
+  if( startsWith(line,'#') ) next
+  else
+  {
+    splits = strsplit(line, "\\s+")[[1]]
+    chrX_phase3_extmSNP.REF_ALT = rbind(chrX_phase3_extmSNP.REF_ALT, splits[1:5])
+  }
+}
+chrX_phase3_extmSNP.REF_ALT = chrX_phase3_extmSNP.REF_ALT[-1,]
+close(con)
+
+
+
+
+
+# Find the SNPs that exist in both GRCh37 phase3 data and high coverage data
+comp_set = chrX.hc.Extm.snp$POS
+
+# Match the sex info of different people
+sex.match = cbind.data.frame(subject=colnames(chrX.phase3.Extm.snp[,4:ncol(chrX.phase3.Extm.snp)]),sex=NA)
+for(i in 1:nrow(sex.match))
+{
+  sex.match[i,2] = as.character(sex.info$sexinfo)[which(as.character(sex.info$FID)==as.character(sex.match[i,1]))]
+}
+
+
+# Formulate the comparison table; 
+for(comp in comp_set)
+{
+  ind1 = which(chrX.phase3.Extm.snp$POS==posmatch.extm$grch37[which(posmatch.extm$grch38==comp)])
+  if(length(ind1)==0) next
+  ind2 = which(chrX.hc.Extm.snp$POS==comp)
+  if(length(ind1)>1) ind1 = ind1[1]
+  
+  snpdata1 = unlist(chrX.phase3.Extm.snp[ind1,4:ncol(chrX.phase3.Extm.snp)])
+  snpdata2 = unlist(chrX.hc.Extm.snp[ind2,4:ncol(chrX.hc.Extm.snp)])
+  
+  snpcompare.female = matrix(0,4,4)
+  
+  if(isnpr37(chrX.phase3.Extm.snp$POS[ind1])){
+    snpcompare.male = matrix(0,3,3)
+    colnames(snpcompare.male) = c('a','A','miss')         # column refers to high coverage data
+    rownames(snpcompare.male) = c('a','A','miss')
+  }
+  else{
+    snpcompare.male = matrix(0,4,4)
+    colnames(snpcompare.male) = c('aa','Aa','AA','miss')
+    rownames(snpcompare.male) = c('aa','Aa','AA','miss')  
+  }
+  colnames(snpcompare.female) = c('aa','Aa','AA','miss')
+  rownames(snpcompare.female) = c('aa','Aa','AA','miss')   
+  
+  ppl = colnames(chrX.phase3.Extm.snp[,4:ncol(chrX.phase3.Extm.snp)])
+  ppl2 = colnames(chrX.hc.Extm.snp[,4:ncol(chrX.hc.Extm.snp)])
+  for(i in 1:length(ppl))
+  {
+    if(sex.match[i,2]=='F')
+    {
+      c = 0; r = 0
+      k = strsplit(as.character(snpdata1[i]),split=c('|','/'))
+      temp = k[[1]]
+      if(temp[1]=='0'&&temp[3]=='0') r = 1 
+      else if(temp[1]=='1'&&temp[3]=='1') r = 3
+      else if((temp[1]=='1'&&temp[3]=='0')||(temp[1]=='0'&&temp[3]=='1')) r = 2
+      else r = 4
+      ind = which(ppl2==ppl[i])
+      if(length(ind)!=0)
+      {
+        k = strsplit(as.character(snpdata2[ind]),split=c('|','/'))
+        temp = k[[1]]
+        if(temp[1]=='0'&&temp[3]=='0') c = 1 
+        else if(temp[1]=='1'&&temp[3]=='1') c = 3
+        else if((temp[1]=='1'&&temp[3]=='0')||(temp[1]=='0'&&temp[3]=='1')) c = 2
+        else c = 4
+        snpcompare.female[r,c] = snpcompare.female[r,c] + 1
+      }
+    }
+    else
+    {
+      if(isnpr37(chrX.phase3.Extm.snp$POS[ind1])){   # NPR
+        c = 0; r = 0
+        if(as.character(snpdata1[i])=="0") r = 1
+        else if(as.character(snpdata1[i])=="1") r = 2
+        else r = 3
+        ind = which(ppl2==ppl[i])
+        if(length(ind)!=0)
+        {
+          if(as.character(snpdata2[ind])=="0") c = 1
+          else if(as.character(snpdata2[ind])=="1") c = 2
+          else c = 3
+          snpcompare.male[r,c] = snpcompare.male[r,c] + 1
+        }
+      }else{
+        c = 0; r = 0
+        k = strsplit(as.character(snpdata1[i]),split=c('|','/'))
+        temp = k[[1]]
+        if(temp[1]=='0'&&temp[3]=='0') r = 1 
+        else if(temp[1]=='1'&&temp[3]=='1') r = 3
+        else if((temp[1]=='1'&&temp[3]=='0')||(temp[1]=='0'&&temp[3]=='1')) r = 2
+        else r = 4
+        ind = which(ppl2==ppl[i])
+        if(length(ind)!=0)
+        {
+          k = strsplit(as.character(snpdata2[ind]),split=c('|','/'))
+          temp = k[[1]]
+          if(temp[1]=='0'&&temp[3]=='0') c = 1 
+          else if(temp[1]=='1'&&temp[3]=='1') c = 3
+          else if((temp[1]=='1'&&temp[3]=='0')||(temp[1]=='0'&&temp[3]=='1')) c = 2
+          else c = 4
+          snpcompare.male[r,c] = snpcompare.male[r,c] + 1
+        }
+      }
+    }
+  }
+  
+  # Calculate colsum and rowsum
+  snpcompare.male[,ncol(snpcompare.male)] = rowSums(snpcompare.male[,-ncol(snpcompare.male)])
+  snpcompare.male[nrow(snpcompare.male),] = colSums(snpcompare.male[-nrow(snpcompare.male),])
+  snpcompare.female[,ncol(snpcompare.female)] = rowSums(snpcompare.female[,-ncol(snpcompare.female)])
+  snpcompare.female[nrow(snpcompare.female),] = colSums(snpcompare.female[-nrow(snpcompare.female),])
+  colnames(snpcompare.male)[ncol(snpcompare.male)] = colnames(snpcompare.female)[ncol(snpcompare.female)] = 'Total_P3'
+  rownames(snpcompare.male)[nrow(snpcompare.male)] = rownames(snpcompare.female)[nrow(snpcompare.female)] = 'Total_HC'
+    
+  REF_ALT = matrix(0,2,2)
+  colnames(REF_ALT) = c('REF','ALT')
+  rownames(REF_ALT) = c('Phase3 (GRCh37)','High Coverage') 
+  
+  REF_ALT[1,1:2] = as.character(chrX_phase3_extmSNP.REF_ALT[ind1,4:5])
+  REF_ALT[2,1:2] = as.character(chrX_hc_extmSNP.REF_ALT[ind2,4:5])
+  
+  if(chrX.phase3.Extm.snp$POS[ind1]<=2699520) cat("Region: PAR1  \n")
+  else if(chrX.phase3.Extm.snp$POS[ind1]>=154931044) cat("Region: PAR2  \n")
+  else if(chrX.phase3.Extm.snp$POS[ind1]>=88400000 & chrX.phase3.Extm.snp$POS[ind1]<=92000000) cat("Region: PAR3  \n")
+  else cat("Region: NPR  \n")
+  cat(paste('rs number (GRCh37 phase3):',chrX.SNP.FreqTable$ID[which(chrX.SNP.FreqTable$POS==GRCh37.snp$POS[which(posmatch.extm$grch38==comp)])],"  \n"))
+  cat(paste('SNP position (GRCh37) =',GRCh37.snp$POS[which(posmatch.extm$grch38==comp)],
+              "; Female-Male Sex Difference in MAF (GRCh37 phase3) =",GRCh37.snp$F.M_RAF[GRCh37.snp$POS==chrX.phase3.Extm.snp$POS[ind1]], "; sdMAF P-value =", 10^(-chrX.AFtest$WALD1df.HWD[which(chrX.AFtest$BP==chrX.phase3.Extm.snp$POS[ind1])]),"  \n"))
+  cat(paste('SNP position (GRCh38) =',comp,
+              "; Female-Male Sex Difference in MAF (High Coverage) =",chrXhc.SNP.FreqTable$F.M_RAF[which(chrXhc.SNP.FreqTable$POS==comp)], "; sdMAF P-value =", 10^(-chrXhc.AFtest$WALD1df.HWD[which(chrXhc.AFtest$BP==comp)]),"  \n"))
+  print(kable(REF_ALT,caption='REF/ALT'))
+  print(kable(snpcompare.male,caption='male'))
+  print(kable(snpcompare.female,caption='female'))
+  cat("Note1. Row (Phase 3 GRCh37); Column (High Coverage GRCh38)  \n")
+  cat("Note2. 'a': ALT; 'A': REF  \n")
+  #print('---------------------------------------------------------------------')
+  
+  cat("\\newpage\n")
+}
+
+```
+
+
+
+
+
+
+
+
+
